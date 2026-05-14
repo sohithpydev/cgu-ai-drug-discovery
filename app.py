@@ -63,9 +63,11 @@ st.markdown("""
 # Application Header
 st.markdown("<h1 class='main-title'>Chang Gung University<br>Office of AI Drug Discovery</h1>", unsafe_allow_html=True)
 
-tab1, tab2 = st.tabs(["🚀 Screening", "📊 Model Performance"])
+st.info("📢 **Announcement:** We are currently screening for **1 billion compounds**, and their respective graphs will be live soon!")
 
-with tab1:
+tab1, tab2 = st.tabs(["📊 Model Performance", "🚀 Click here to start screening your site"])
+
+with tab2:
     # Target Site Selection
     st.subheader("🎯 Select Target Site")
     target_sites = ["APC-8B CBOX1", "APC-8B CBOX2", "APC8B KILR", "APC1", "APC5"]
@@ -80,7 +82,7 @@ with tab1:
         st.markdown("""
         <div class='info-box'>
             <b>Note regarding Descriptors:</b><br>
-            Currently, you need to provide both the <code>SMILES</code> strings and the pre-computed 10 molecular descriptors. 
+            Currently, you need to provide both the <code>SMILES</code> strings and the pre-computed RDKIT descriptors. 
             <i>We are actively working on an automated solution! In the future, you will only need to provide the SMILES string, and we will compute the descriptors for you automatically.</i>
         </div>
         """, unsafe_allow_html=True)
@@ -90,7 +92,8 @@ with tab1:
             "Compound_ID", "SMILES", "Asphericity", "Eccentricity", "InertialShapeFactor", 
             "NPR1", "NPR2", "PMI1", "PMI2", "PMI3", "RadiusOfGyration", "SpherocityIndex"
         ]
-        st.code(", ".join(required_columns), language="text")
+        display_columns = ["Compound_ID", "SMILES", "[RDKIT_Descriptors...]"]
+        st.code(", ".join(display_columns), language="text")
         
         uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
         
@@ -101,7 +104,7 @@ with tab1:
                 missing_cols = [col for col in required_columns if col not in df.columns]
                 
                 if missing_cols:
-                    st.error(f"❌ Uploaded file is missing the following required columns: {', '.join(missing_cols)}")
+                    st.error("❌ Uploaded file is missing some required columns (e.g., SMILES, Compound_ID, or required RDKIT descriptors).")
                 else:
                     st.success(f"✅ Successfully loaded `{uploaded_file.name}` with {len(df)} compounds.")
                     
@@ -184,13 +187,13 @@ with tab1:
             except Exception as e:
                 st.error(f"❌ Error processing file: {str(e)}")
 
-with tab2:
+with tab1:
     st.header("Ensemble Model Performance")
     
     st.markdown("""
     <div class='metric-callout'>
         The ensemble model was trained on a comprehensive dataset of <b>8.9 million</b> docking data points. 
-        This data was divided into 3 chunks to train 3 separate models, ensuring robust generalization and high predictive accuracy.
+        This data was divided into 3 equal chunks (~2.96 in each) to train 3 separate models, ensuring robust generalization and high predictive accuracy.
     </div>
     """, unsafe_allow_html=True)
     
@@ -242,4 +245,3 @@ with tab2:
             st.image("actual_vs_predicted_cross_C_on_A_scatter_plot.png", caption="Actual vs Predicted", use_container_width=True)
             
     st.markdown("---")
-    st.info("🚀 **Future Roadmap:** We are currently screening for **1 billion compounds**, and their respective graphs will be live soon!")
