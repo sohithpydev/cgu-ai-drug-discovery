@@ -7,11 +7,13 @@ import shutil
 import sys
 from PIL import Image
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Configuration for paths
 MODEL_PATHS = [
-    os.path.abspath("best_chunk0.pt"),
-    os.path.abspath("best_chunk1.pt"),
-    os.path.abspath("best_chunk2.pt"),
+    os.path.join(BASE_DIR, "best_chunk0.pt"),
+    os.path.join(BASE_DIR, "best_chunk1.pt"),
+    os.path.join(BASE_DIR, "best_chunk2.pt"),
 ]
 
 # Set page configuration
@@ -94,8 +96,9 @@ with tab2:
         st.code(", ".join(display_columns), language="text")
         
         # Provide sample CSV for download
-        if os.path.exists("filtered_smiles_all_01_clean_3d_random100.csv"):
-            with open("filtered_smiles_all_01_clean_3d_random100.csv", "rb") as file:
+        sample_csv_path = os.path.join(BASE_DIR, "filtered_smiles_all_01_clean_3d_random100.csv")
+        if os.path.exists(sample_csv_path):
+            with open(sample_csv_path, "rb") as file:
                 st.download_button(
                     label="📥 Download Sample CSV",
                     data=file,
