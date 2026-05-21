@@ -3,13 +3,15 @@ import pandas as pd
 import subprocess
 import os
 import tempfile
+import shutil
+import sys
 from PIL import Image
 
 # Configuration for paths
-LINUX_MODEL_PATHS = [
-    "/home/scs03596/10m_screen/chemprop_v2+desc/chunk_0_output/model_0/best.pt",
-    "/home/scs03596/10m_screen/chemprop_v2+desc/chunk_1_output/model_0/best.pt",
-    "/home/scs03596/10m_screen/chemprop_v2+desc/chunk_2_output/model_0/best.pt",
+MODEL_PATHS = [
+    os.path.abspath("best_chunk0.pt"),
+    os.path.abspath("best_chunk1.pt"),
+    os.path.abspath("best_chunk2.pt"),
 ]
 
 # Set page configuration
@@ -81,19 +83,26 @@ with tab2:
         
         st.markdown("""
         <div class='info-box'>
-            <b>Note regarding Descriptors:</b><br>
-            Currently, you need to provide both the <code>SMILES</code> strings and the pre-computed RDKIT descriptors. 
-            <i>We are actively working on an automated solution! In the future, you will only need to provide the SMILES string, and we will compute the descriptors for you automatically.</i>
+            <b>Input Format:</b><br>
+            Please provide a CSV file containing your <code>SMILES</code> strings and a unique <code>Compound_ID</code>.
         </div>
         """, unsafe_allow_html=True)
         
         st.markdown("Your `.csv` file must contain the following columns:")
-        required_columns = [
-            "Compound_ID", "SMILES", "Asphericity", "Eccentricity", "InertialShapeFactor", 
-            "NPR1", "NPR2", "PMI1", "PMI2", "PMI3", "RadiusOfGyration", "SpherocityIndex"
-        ]
-        display_columns = ["Compound_ID", "SMILES", "[RDKIT_Descriptors...]"]
+        required_columns = ["Compound_ID", "SMILES"]
+        display_columns = ["Compound_ID", "SMILES"]
         st.code(", ".join(display_columns), language="text")
+        
+        # Provide sample CSV for download
+        if os.path.exists("filtered_smiles_all_01_clean_3d_random100.csv"):
+            with open("filtered_smiles_all_01_clean_3d_random100.csv", "rb") as file:
+                st.download_button(
+                    label="📥 Download Sample CSV",
+                    data=file,
+                    file_name="sample_input.csv",
+                    mime="text/csv"
+                )
+        
         
         uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
         
@@ -104,24 +113,17 @@ with tab2:
                 missing_cols = [col for col in required_columns if col not in df.columns]
                 
                 if missing_cols:
-                    st.error("❌ Uploaded file is missing some required columns (e.g., SMILES, Compound_ID, or required RDKIT descriptors).")
+                    st.error(f"❌ Uploaded file is missing some required columns: {', '.join(missing_cols)}")
                 else:
                     st.success(f"✅ Successfully loaded `{uploaded_file.name}` with {len(df)} compounds.")
                     
                     if st.button("🚀 Run Prediction", type="primary", use_container_width=True):
                         with st.spinner("Preparing to run Chemprop prediction..."):
                             # Determine which models to use
-                            models_to_use = []
-                            if all(os.path.exists(p) for p in LINUX_MODEL_PATHS):
-                                models_to_use = LINUX_MODEL_PATHS
-                            else:
-                                # Fallback: Check local directory for .pt files (chunk_0.pt, chunk_1.pt, etc.)
-                                local_models = [f for f in os.listdir('.') if f.endswith('.pt') and f.startswith('chunk')]
-                                if local_models:
-                                    models_to_use = [os.path.abspath(m) for m in local_models]
-                                else:
-                                    st.error("❌ Could not find model files. Please ensure the model `.pt` files exist.")
-                                    st.stop()
+                            models_to_use = MODEL_PATHS
+                            if not all(os.path.exists(p) for p in models_to_use):
+                                st.error("❌ Could not find the new model files (`best_chunk0.pt`, etc.). Please ensure they exist.")
+                                st.stop()
                                     
                             # Save the uploaded file to a temporary location
                             with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp_input:
@@ -131,17 +133,21 @@ with tab2:
                             # Set output path
                             output_path = os.path.abspath("ensemble_predictions.csv")
                             
+                            chemprop_cmd = ["chemprop"]
+                            if shutil.which("chemprop") is None:
+                                possible_path = os.path.join(os.path.dirname(sys.executable), "chemprop")
+                                if os.path.exists(possible_path):
+                                    chemprop_cmd = [possible_path]
+                                else:
+                                    chemprop_cmd = ["conda", "run", "-n", "chemprop", "chemprop"]
+                                    
                             # Build the command
-                            command = [
-                                "chemprop", "predict",
+                            command = chemprop_cmd + [
+                                "predict",
                                 "--test-path", input_path,
                                 "--smiles-columns", "SMILES",
                                 "--model-path"
                             ] + models_to_use + [
-                                "--descriptors-columns", 
-                                "Asphericity", "Eccentricity", "InertialShapeFactor", 
-                                "NPR1", "NPR2", "PMI1", "PMI2", "PMI3", 
-                                "RadiusOfGyration", "SpherocityIndex",
                                 "--drop-extra-columns",
                                 "--uncertainty-method", "ensemble",
                                 "--accelerator", "cpu", # Safe default for local Mac testing
